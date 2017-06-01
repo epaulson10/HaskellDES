@@ -5,10 +5,10 @@ import Test.HUnit
 
 {- These tables here were copy-pasted from this lovely
  - Wikipedia page: https://en.wikipedia.org/wiki/DES_supplementary_material
- - TODO: Wikipedia says that bit number 1 is the most significant bit. I may be mistaking 
- - this here.
+ - The lambda functions are here to convert the tables from big-endian to 
+ - little-endian and from 1-based indexing to 0-based indexing.
  -}
-initialPermutation = map (\x -> x-1) [
+initialPermutation = map (\x -> 64-x) [
     58, 50, 42, 34, 26, 18, 10, 2,
     60, 52, 44, 36, 28, 20, 12, 4,
     62, 54, 46, 38, 30, 22, 14, 6,
@@ -18,7 +18,7 @@ initialPermutation = map (\x -> x-1) [
     61, 53, 45, 37, 29, 21, 13, 5,
     63, 55, 47, 39, 31, 23, 15, 7]
 
-finalPermutation = map (\x -> x-1) [
+finalPermutation = map (\x -> 64-x) [
     40, 8, 48, 16, 56, 24, 64, 32,
     39, 7, 47, 15, 55, 23, 63, 31,
     38, 6, 46, 14, 54, 22, 62, 30,
@@ -28,7 +28,7 @@ finalPermutation = map (\x -> x-1) [
     34, 2, 42, 10, 50, 18, 58, 26,
     33, 1, 41, 9 , 49, 17, 57, 25]
 
-expansionTable = map (\x -> x-1)[
+expansionTable = map (\x -> 32-x)[
     32, 1 , 2 , 3 , 4 , 5,
     4 , 5 , 6 , 7 , 8 , 9,
     8 , 9 , 10, 11, 12, 13,
@@ -38,25 +38,25 @@ expansionTable = map (\x -> x-1)[
     24, 25, 26, 27, 28, 29,
     28, 29, 30, 31, 32, 1]
 
-permutationTable = map (\x -> x-1)[
+permutationTable = map (\x -> 32-x)[
     16, 7 , 20, 21, 29, 12, 28, 17,
     1 , 15, 23, 26, 5 , 18, 31, 10,
     2 , 8 , 24, 14, 32, 27, 3 , 9,
     19, 13, 30, 6 , 22, 11, 4 , 25]
 
-permutedChoiceOneL = map (\x -> x-1)[
+permutedChoiceOneL = map (\x -> 64-x)[
     7 , 49, 41, 33, 25, 17, 9,
     1 , 58, 50, 42, 34, 26, 18,
     10, 2 , 59, 51, 43, 35, 27,
     19, 11, 3 , 60, 52, 44, 36]
 
-permutedChoiceOneR = map (\x -> x-1)[
+permutedChoiceOneR = map (\x -> 64-x)[
     63, 55, 47, 39, 31, 23, 15,
     7 , 62, 54, 46, 38, 30, 22,
     14, 6 , 61, 53, 45, 37, 29,
     21, 13, 5 , 28, 20, 12, 4]
 
-permutedChoiceTwo = map (\x -> x-1)[
+permutedChoiceTwo = map (\x -> 64-x)[
     14, 17, 11, 24, 1 , 5,
     3 , 28, 15, 6 , 21, 10,
     23, 19, 12, 4 , 26, 8,
@@ -234,14 +234,23 @@ feistel halfBlock subkey =
                 doSBoxes :: BitVector -> BitVector
                 doSBoxes bits = foldl concatVec (BitVector []) [ sboxLookup bv sbox  | (bv,sbox) <- zip (chunk 6 bits) sboxes]
 
+
 encryptBlock :: BitVector -> BitVector ->  BitVector
-encryptBlock (BitVector bits) key =  fp
+encryptBlock block key =  doDES block (genKeys key)
+
+-- Decryption is the same as encryption in DES, just with the order of the 
+-- subkeys reversed
+decryptBlock :: BitVector -> BitVector ->  BitVector
+decryptBlock block key =  doDES block (reverse $ genKeys key)
+
+doDES :: BitVector -> [BitVector] -> BitVector
+doDES (BitVector bits) keys =  fp
     where 
-          roundKeys = genKeys key
           ip = BitVector [ bits !! n | n <- initialPermutation ]
-          (left,right) =  doRounds 0 roundKeys (split ip)
+          (left,right) =  doRounds 0 keys (split ip)
           (BitVector endBits) = concatVec left right
           fp = BitVector [ endBits !! n | n <- finalPermutation ] 
+
 
 doRounds :: Int -> [BitVector] -> (BitVector,BitVector) -> (BitVector,BitVector)
 doRounds 15 keys (left,right) = (newLeft, right)
