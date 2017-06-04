@@ -1,7 +1,9 @@
+import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BC
 import Data.Bits
 import Data.Word
 import Test.HUnit
+import Test.QuickCheck
 
 {- These tables here were copy-pasted from this lovely
  - Wikipedia page: https://en.wikipedia.org/wiki/DES_supplementary_material
@@ -134,9 +136,30 @@ newtype BitVector = BitVector [Bool] deriving Show
 
 class Vector a where
     concatVec :: a -> a -> a
-
+    toByteString :: a -> B.ByteString
+    fromByteString :: B.ByteString -> a
+-- TODO, need to make sure that ordering is correct
 instance Vector BitVector where 
     concatVec (BitVector xs) (BitVector ys) = BitVector (xs++ys)
+    toByteString (BitVector xs) = B.pack $ reverse (buildList xs)
+        where 
+              powersOfTwo :: [Word8]
+              powersOfTwo = [ 2^n | n <- [0..]]
+              toWord8 xs = foldl (.|.) 0 [ if bit then num else 0 | (bit, num) <- zip xs powersOfTwo]
+              buildList [] = []
+              buildList xs = (toWord8 $ take 8 xs):buildList (drop 8 xs)
+    fromByteString bs = BitVector(concat $ buildList bytes)
+        where bytes = B.unpack bs
+              byteToBitVec byte = [ testBit byte n | n <- [0..7]]
+              buildList xs = reverse $ map byteToBitVec xs
+              --buildList [] = []
+              --buildList (x:xs) = (byteToBitVec x):(buildList xs) 
+
+instance Arbitrary BitVector where
+    arbitrary = do
+            xs <- list
+            return $ BitVector xs
+        where list = vectorOf 64 $ oneof [return True, return False]
 
 data ByteArray = ByteArray [Word8] deriving Show
 
@@ -242,6 +265,31 @@ encryptBlock block key =  doDES block (genKeys key)
 -- subkeys reversed
 decryptBlock :: BitVector -> BitVector ->  BitVector
 decryptBlock block key =  doDES block (reverse $ genKeys key)
+
+prop_encryptDecrypt block key = block == decryptBlock cipherText key
+    where cipherText = encryptBlock block key
+
+prop_bitVectorToByteString :: BitVector -> Bool
+prop_bitVectorToByteString bitvector = bitvector == fromByteString bytestring 
+    where bytestring = toByteString bitvector
+
+-- TODO, there is some duplicated code in these functions
+encrypt :: B.ByteString -> B.ByteString-> B.ByteString
+encrypt blockBS keyBS = if B.length blockBS /= 8 then -- TODO Key lenght?
+                        error "Block length must be 8"
+                    else
+                        let block = fromByteString blockBS
+                            key = fromByteString keyBS
+                        in  toByteString $ encryptBlock block key
+
+decrypt :: B.ByteString -> B.ByteString-> B.ByteString
+decrypt blockBS keyBS = if B.length blockBS /= 8 then -- TODO Key lenght?
+                        error "Block length must be 8"
+                    else
+                        let block = fromByteString blockBS
+                            key = fromByteString keyBS
+                        in  toByteString $ decryptBlock block key
+                   
 
 doDES :: BitVector -> [BitVector] -> BitVector
 doDES (BitVector bits) keys =  fp
