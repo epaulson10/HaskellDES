@@ -12,7 +12,7 @@ import Test.QuickCheck
  - The lambda functions are here to convert the tables from big-endian to 
  - little-endian and from 1-based indexing to 0-based indexing.
  -}
-initialPermutation = map (\x -> 64-x) $ reverse [
+initialPermutation = map (\x -> x-1) [
     58, 50, 42, 34, 26, 18, 10, 2,
     60, 52, 44, 36, 28, 20, 12, 4,
     62, 54, 46, 38, 30, 22, 14, 6,
@@ -22,7 +22,7 @@ initialPermutation = map (\x -> 64-x) $ reverse [
     61, 53, 45, 37, 29, 21, 13, 5,
     63, 55, 47, 39, 31, 23, 15, 7]
 
-finalPermutation = map (\x -> 64-x) $ reverse [
+finalPermutation = map (\x -> x-1) [
     40, 8, 48, 16, 56, 24, 64, 32,
     39, 7, 47, 15, 55, 23, 63, 31,
     38, 6, 46, 14, 54, 22, 62, 30,
@@ -32,7 +32,7 @@ finalPermutation = map (\x -> 64-x) $ reverse [
     34, 2, 42, 10, 50, 18, 58, 26,
     33, 1, 41, 9 , 49, 17, 57, 25]
 
-expansionTable = map (\x -> 32-x) $ reverse[
+expansionTable = map (\x -> x-1) [
     32, 1 , 2 , 3 , 4 , 5,
     4 , 5 , 6 , 7 , 8 , 9,
     8 , 9 , 10, 11, 12, 13,
@@ -42,25 +42,25 @@ expansionTable = map (\x -> 32-x) $ reverse[
     24, 25, 26, 27, 28, 29,
     28, 29, 30, 31, 32, 1]
 
-permutationTable = map (\x -> 32-x) $ reverse [
+permutationTable = map (\x -> x-1) [
     16, 7 , 20, 21, 29, 12, 28, 17,
     1 , 15, 23, 26, 5 , 18, 31, 10,
     2 , 8 , 24, 14, 32, 27, 3 , 9,
     19, 13, 30, 6 , 22, 11, 4 , 25]
 
-permutedChoiceOneL = map (\x -> 64-x) $ reverse[
+permutedChoiceOneL = map (\x -> x-1) [
     7 , 49, 41, 33, 25, 17, 9,
     1 , 58, 50, 42, 34, 26, 18,
     10, 2 , 59, 51, 43, 35, 27,
     19, 11, 3 , 60, 52, 44, 36]
 
-permutedChoiceOneR = map (\x -> 64-x)$ reverse[
+permutedChoiceOneR = map (\x -> x-1)[
     63, 55, 47, 39, 31, 23, 15,
     7 , 62, 54, 46, 38, 30, 22,
     14, 6 , 61, 53, 45, 37, 29,
     21, 13, 5 , 28, 20, 12, 4]
 
-permutedChoiceTwo = map (\x -> 56-x) $ reverse[
+permutedChoiceTwo = map (\x -> x-1) [
     14, 17, 11, 24, 1 , 5,
     3 , 28, 15, 6 , 21, 10,
     23, 19, 12, 4 , 26, 8,
@@ -113,11 +113,12 @@ s8 =
     2 , 1 , 14, 7 , 4 , 10, 8 , 13, 15, 12, 9 , 0 , 3 , 5 , 6 , 11]
 
 byteToBitVector :: Word8 -> BitVector
-byteToBitVector byte = BitVector  [ testBit byte n | n <- [0..3]]
+byteToBitVector byte = BitVector  [ testBit byte n | n <- [3,2..0]]
 
 bitVectorToInt :: BitVector -> Int
-bitVectorToInt (BitVector bits) = foldl (.|.) 0 [ if bit then num else 0 | (bit, num) <- zip bits powersOfTwo]
+bitVectorToInt (BitVector bits) = foldl (.|.) 0 [ if bit then num else 0 | (bit, num) <- zip revBits powersOfTwo]
     where powersOfTwo = [ 2^n | n <- [0..]]
+          revBits = reverse bits
 
 sboxes :: [[Word8]]
 sboxes = [s1,s2,s3,s4,s5,s6,s7,s8]
@@ -142,7 +143,7 @@ class Vector a where
     fromByteString :: B.ByteString -> a
 -- TODO, need to make sure that ordering is correct
 instance Vector BitVector where 
-    concatVec (BitVector xs) (BitVector ys) = BitVector (ys++xs)
+    concatVec (BitVector xs) (BitVector ys) = BitVector (xs++ys)
     toByteString (BitVector xs) = B.pack $ reverse (buildList xs)
         where 
               powersOfTwo :: [Word8]
@@ -162,11 +163,6 @@ instance Arbitrary BitVector where
             xs <- list
             return $ BitVector xs
         where list = vectorOf 64 $ oneof [return True, return False]
-
-data ByteArray = ByteArray [Word8] deriving Show
-
-instance Eq ByteArray where
-    ByteArray xs == ByteArray ys = and $ map (0 ==) [ xor x  y | (x,y) <- zip xs ys] 
 
 xorBool :: Bool -> Bool -> Bool
 xorBool True False = True 
@@ -190,16 +186,16 @@ instance Bits BitVector where
      - list right, and vice versa -}
     shiftL (BitVector xs) 0 = BitVector xs
     shiftL (BitVector xs) n = shiftL (BitVector (shiftOneL xs)) (n-1)
-        where shiftOneL ys = False:(init ys)
+        where shiftOneL ys = (tail ys) ++ [False]
     shiftR (BitVector xs) 0 = BitVector xs
     shiftR (BitVector xs) n = shiftR (BitVector (shiftOneR xs)) (n-1)
-        where shiftOneR ys = (tail ys)++[False]
+        where shiftOneR ys = False:(init ys)
     rotateL (BitVector xs) 0 = BitVector xs
     rotateL (BitVector xs) n = rotateL (BitVector (rotateOneL xs)) (n-1) 
-        where rotateOneL ys = (last ys):(init ys)
-    rotateR (BitVector xs) 0 = BitVector xs
+        where rotateOneL ys = (tail ys)++[head ys]
+    rotateR (BitVector xs) 0 = BitVector x/
     rotateR (BitVector xs) n = rotateR (BitVector (rotateOneR xs)) (n-1) 
-        where rotateOneR ys = (tail ys) ++ [head ys]
+        where rotateOneR ys = (last ys):(init ys)
     bitSizeMaybe (BitVector xs) = Nothing
     bitSize (BitVector xs) = undefined
     popCount (BitVector xs) = foldl (+) 0 [ if x == True then 1 else 0 | x <- xs]
@@ -209,17 +205,15 @@ instance Bits BitVector where
     --clearBit (BitVector xs) n = BitVector [ if i == n then False else x | (x,i) <- zip xs [0..]]
 
 testkey = BitVector ((take 32 $ repeat True) ++ (take 32 $ repeat False))
-test0_key= BitVector ((take 63 $ repeat False)++ [True])
+test0_key= BitVector (True:(take 63 $ repeat False))
 test0_plain = BitVector (take 64 $ repeat False)
 
 bitVecLen (BitVector xs) = length xs
-combine :: BitVector -> BitVector -> BitVector
-combine (BitVector xs) (BitVector ys) = BitVector (ys ++ xs)
 split :: BitVector -> (BitVector, BitVector)
 split (BitVector xs) = (BitVector left, BitVector right)
-    where (right, left) = splitAt (length xs `div` 2) xs
+    where (left, right) = splitAt (length xs `div` 2) xs
 chunk :: Int -> BitVector -> [BitVector]
-chunk n (BitVector xs) = map BitVector (reverse $ go xs) 
+chunk n (BitVector xs) = map BitVector (go xs) 
     where
         go [] = []
         go ys = take n ys : go (drop n ys)
@@ -227,12 +221,7 @@ chunk n (BitVector xs) = map BitVector (reverse $ go xs)
 pc1 :: BitVector -> (BitVector, BitVector)
 pc1 (BitVector bits64) = (BitVector leftPermuted, BitVector rightPermuted)
     where leftPermuted = [ bits64 !! n | n <- permutedChoiceOneL]
-          rightPermuted = [ bits64 !!  n | n <- permutedChoiceOneR]
-
-splitAndShift :: BitVector -> Int -> BitVector
-splitAndShift vec round = combine (shiftL left n) (shiftL right n)
-    where (left, right) = split vec
-          n = numRotations round
+          rightPermuted = [ bits64 !! n | n <- permutedChoiceOneR]
 
 pc2 :: BitVector -> BitVector
 pc2 (BitVector bits56) = BitVector [ bits56 !! n | n <- permutedChoiceTwo]
@@ -248,7 +237,7 @@ genKeys key = keyGenRound 1 (pc1 key)
 
 keyGenRound :: Int -> (BitVector,BitVector) -> [BitVector]
 keyGenRound 17 _ = []
-keyGenRound n (left,right) = (pc2 (combine rotatedL rotatedR)) : keyGenRound (n+1) (rotatedL, rotatedR)
+keyGenRound n (left,right) = (pc2 (concatVec rotatedL rotatedR)) : keyGenRound (n+1) (rotatedL, rotatedR)
     where rotatedL = rotateL left (numRotations n)
           rotatedR = rotateL right (numRotations n)
 
