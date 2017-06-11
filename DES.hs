@@ -12,7 +12,7 @@ import Test.QuickCheck
  - The lambda functions are here to convert the tables from big-endian to 
  - little-endian and from 1-based indexing to 0-based indexing.
  -}
-initialPermutation = map (\x -> 64-x) [
+initialPermutation = map (\x -> 64-x) $ reverse [
     58, 50, 42, 34, 26, 18, 10, 2,
     60, 52, 44, 36, 28, 20, 12, 4,
     62, 54, 46, 38, 30, 22, 14, 6,
@@ -22,7 +22,7 @@ initialPermutation = map (\x -> 64-x) [
     61, 53, 45, 37, 29, 21, 13, 5,
     63, 55, 47, 39, 31, 23, 15, 7]
 
-finalPermutation = map (\x -> 64-x) [
+finalPermutation = map (\x -> 64-x) $ reverse [
     40, 8, 48, 16, 56, 24, 64, 32,
     39, 7, 47, 15, 55, 23, 63, 31,
     38, 6, 46, 14, 54, 22, 62, 30,
@@ -32,7 +32,7 @@ finalPermutation = map (\x -> 64-x) [
     34, 2, 42, 10, 50, 18, 58, 26,
     33, 1, 41, 9 , 49, 17, 57, 25]
 
-expansionTable = map (\x -> 32-x)[
+expansionTable = map (\x -> 32-x) $ reverse[
     32, 1 , 2 , 3 , 4 , 5,
     4 , 5 , 6 , 7 , 8 , 9,
     8 , 9 , 10, 11, 12, 13,
@@ -42,25 +42,25 @@ expansionTable = map (\x -> 32-x)[
     24, 25, 26, 27, 28, 29,
     28, 29, 30, 31, 32, 1]
 
-permutationTable = map (\x -> 32-x)[
+permutationTable = map (\x -> 32-x) $ reverse [
     16, 7 , 20, 21, 29, 12, 28, 17,
     1 , 15, 23, 26, 5 , 18, 31, 10,
     2 , 8 , 24, 14, 32, 27, 3 , 9,
     19, 13, 30, 6 , 22, 11, 4 , 25]
 
-permutedChoiceOneL = map (\x -> 64-x)[
+permutedChoiceOneL = map (\x -> 64-x) $ reverse[
     7 , 49, 41, 33, 25, 17, 9,
     1 , 58, 50, 42, 34, 26, 18,
     10, 2 , 59, 51, 43, 35, 27,
     19, 11, 3 , 60, 52, 44, 36]
 
-permutedChoiceOneR = map (\x -> 64-x)[
+permutedChoiceOneR = map (\x -> 64-x)$ reverse[
     63, 55, 47, 39, 31, 23, 15,
     7 , 62, 54, 46, 38, 30, 22,
     14, 6 , 61, 53, 45, 37, 29,
     21, 13, 5 , 28, 20, 12, 4]
 
-permutedChoiceTwo = map (\x -> 64-x)[
+permutedChoiceTwo = map (\x -> 56-x) $ reverse[
     14, 17, 11, 24, 1 , 5,
     3 , 28, 15, 6 , 21, 10,
     23, 19, 12, 4 , 26, 8,
@@ -124,8 +124,8 @@ sboxes = [s1,s2,s3,s4,s5,s6,s7,s8]
 
 sboxLookup :: BitVector -> [Word8] -> BitVector
 sboxLookup (BitVector bits) sbox = byteToBitVector $ sbox !! (row*16 + col)
-    where row = bitVectorToInt $ BitVector ((last bits):(head bits):[])
-          col = bitVectorToInt $ BitVector (init . tail $ bits)
+    where row = bitVectorToInt $ BitVector ((head bits):(last bits):[])
+          col = bitVectorToInt $ BitVector ( init . tail $ bits)
 
 numRotations :: Int -> Int
 numRotations round =
@@ -142,7 +142,7 @@ class Vector a where
     fromByteString :: B.ByteString -> a
 -- TODO, need to make sure that ordering is correct
 instance Vector BitVector where 
-    concatVec (BitVector xs) (BitVector ys) = BitVector (xs++ys)
+    concatVec (BitVector xs) (BitVector ys) = BitVector (ys++xs)
     toByteString (BitVector xs) = B.pack $ reverse (buildList xs)
         where 
               powersOfTwo :: [Word8]
@@ -209,15 +209,17 @@ instance Bits BitVector where
     --clearBit (BitVector xs) n = BitVector [ if i == n then False else x | (x,i) <- zip xs [0..]]
 
 testkey = BitVector ((take 32 $ repeat True) ++ (take 32 $ repeat False))
+test0_key= BitVector ((take 63 $ repeat False)++ [True])
+test0_plain = BitVector (take 64 $ repeat False)
 
 bitVecLen (BitVector xs) = length xs
 combine :: BitVector -> BitVector -> BitVector
-combine (BitVector xs) (BitVector ys) = BitVector (xs ++ ys)
+combine (BitVector xs) (BitVector ys) = BitVector (ys ++ xs)
 split :: BitVector -> (BitVector, BitVector)
 split (BitVector xs) = (BitVector left, BitVector right)
-    where (left, right) = splitAt (length xs `div` 2) xs
+    where (right, left) = splitAt (length xs `div` 2) xs
 chunk :: Int -> BitVector -> [BitVector]
-chunk n (BitVector xs) = map BitVector (go xs) 
+chunk n (BitVector xs) = map BitVector (reverse $ go xs) 
     where
         go [] = []
         go ys = take n ys : go (drop n ys)
@@ -242,11 +244,11 @@ expansion :: BitVector -> BitVector
 expansion (BitVector bits32) = BitVector [ bits32 !! n | n <- expansionTable]
 
 genKeys :: BitVector -> [BitVector]
-genKeys key = keyGenRound 16 (split key)
+genKeys key = keyGenRound 1 (pc1 key)
 
 keyGenRound :: Int -> (BitVector,BitVector) -> [BitVector]
-keyGenRound 0 _ = []
-keyGenRound n (left,right) = (pc2 (combine rotatedL rotatedR)) : keyGenRound (n-1) (rotatedL, rotatedR)
+keyGenRound 17 _ = []
+keyGenRound n (left,right) = (pc2 (combine rotatedL rotatedR)) : keyGenRound (n+1) (rotatedL, rotatedR)
     where rotatedL = rotateL left (numRotations n)
           rotatedR = rotateL right (numRotations n)
 
@@ -320,5 +322,6 @@ test2 = TestCase (
             "subkey size is 48 bits"
             ( bitVecLen $ head $ genKeys testkey)
             48)
+
 
 tests = TestList [test1, test2]
