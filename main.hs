@@ -10,8 +10,8 @@ import qualified Data.ByteString as B
 main :: IO ()
 main = do
     args <- getArgs
-    (command,infile,outfile) <- parseArgs args
-    password <- getPassword
+    (command,infile,outfile, password) <- parseArgs args
+    -- password <- getPassword
     fileContents <- B.readFile infile
     let key = BC.take 64 $ hash $ BC.pack password 
         process = if command == "encrypt" then encryptByteString else decryptByteString
@@ -23,13 +23,21 @@ encryptByteString key contents =  (B.concat .  map (`encrypt` key) . pad . chunk
 decryptByteString :: B.ByteString -> B.ByteString -> B.ByteString
 decryptByteString key contents = (B.concat . unpad . map (`decrypt` key) . chunk) contents
 
-parseArgs :: [String] -> IO (String, String, String)
+parseArgs :: [String] -> IO (String, String, String, String)
 parseArgs [cmd, infile, outfile] = do
     inputExists <- doesFileExist infile
     if (cmd /= "encrypt" && cmd /= "decrypt") || not inputExists then
         usage >> exitFailure
+    else do
+        password <- getPassword
+        return (cmd, infile, outfile, password)
+parseArgs ["-p", password, cmd, infile, outfile] = do
+    inputExists <- doesFileExist infile
+    if (cmd /= "encrypt" && cmd /= "decrypt") || not inputExists then
+        usage >> exitFailure
     else
-        return (cmd, infile, outfile)
+        return (cmd, infile, outfile, password)
+
 parseArgs _ = usage >> exitFailure
 
     
@@ -37,7 +45,7 @@ parseArgs _ = usage >> exitFailure
 usage :: IO()
 usage = do
     progName <- getProgName 
-    putStrLn $ progName ++ " [encrypt,decrypt] infile outfile"
+    putStrLn $ progName ++ " {-p password} [encrypt,decrypt] infile outfile"
 
 getPassword :: IO String
 getPassword = do
