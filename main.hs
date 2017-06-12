@@ -47,17 +47,17 @@ usage = do
     progName <- getProgName 
     putStrLn $ progName ++ " {-p password} [encrypt,decrypt] infile outfile"
 
+putStrFlush :: String -> IO()
+putStrFlush str = putStr str >> hFlush stdout
+
 getPassword :: IO String
 getPassword = do
-    putStr "Enter the password: "
-    oldEchoVal <- hGetEcho stdin
-    hSetEcho stdin False
+    putStrFlush "Enter the password: "
     pass <- getLineSecret
     putChar '\n'
-    putStr "Reenter the password: "
+    putStrFlush "Reenter the password: "
     pass2 <- getLineSecret
     putChar '\n'
-    hSetEcho stdin oldEchoVal
     if pass /= pass2 then do
         putStrLn "*Passwords didn't match*"
         pass <- getPassword
@@ -67,9 +67,11 @@ getPassword = do
 
 getLineSecret :: IO String
 getLineSecret = do
+    hSetEcho stdin False
     c <- getChar
     if c == '\n' then 
-        return []
+         do hSetEcho stdin True
+            return []
      else
          do cs <- getLineSecret
             return (c:cs)

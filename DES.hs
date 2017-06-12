@@ -193,7 +193,7 @@ instance Bits BitVector where
     rotateL (BitVector xs) 0 = BitVector xs
     rotateL (BitVector xs) n = rotateL (BitVector (rotateOneL xs)) (n-1) 
         where rotateOneL ys = (tail ys)++[head ys]
-    rotateR (BitVector xs) 0 = BitVector x/
+    rotateR (BitVector xs) 0 = BitVector xs
     rotateR (BitVector xs) n = rotateR (BitVector (rotateOneR xs)) (n-1) 
         where rotateOneR ys = (last ys):(init ys)
     bitSizeMaybe (BitVector xs) = Nothing
