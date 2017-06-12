@@ -49,7 +49,7 @@ permutationTable = map (\x -> x-1) [
     19, 13, 30, 6 , 22, 11, 4 , 25]
 
 permutedChoiceOneL = map (\x -> x-1) [
-    7 , 49, 41, 33, 25, 17, 9,
+    57 , 49, 41, 33, 25, 17, 9,
     1 , 58, 50, 42, 34, 26, 18,
     10, 2 , 59, 51, 43, 35, 27,
     19, 11, 3 , 60, 52, 44, 36]
@@ -144,17 +144,17 @@ class Vector a where
 -- TODO, need to make sure that ordering is correct
 instance Vector BitVector where 
     concatVec (BitVector xs) (BitVector ys) = BitVector (xs++ys)
-    toByteString (BitVector xs) = B.pack $ reverse (buildList xs)
+    toByteString (BitVector xs) = B.pack (buildList xs)
         where 
               powersOfTwo :: [Word8]
               powersOfTwo = [ 2^n | n <- [0..]]
-              toWord8 xs = foldl (.|.) 0 [ if bit then num else 0 | (bit, num) <- zip xs powersOfTwo]
+              toWord8 xs = foldl (.|.) 0 [ if bit then num else 0 | (bit, num) <- zip (reverse xs) powersOfTwo]
               buildList [] = []
               buildList xs = (toWord8 $ take 8 xs):buildList (drop 8 xs)
     fromByteString bs = BitVector(concat $ buildList bytes)
         where bytes = B.unpack bs
-              byteToBitVec byte = [ testBit byte n | n <- [0..7]]
-              buildList xs = reverse $ map byteToBitVec xs
+              byteToBitVec byte = [ testBit byte n | n <- [7,6..0]]
+              buildList xs = map byteToBitVec xs
               --buildList [] = []
               --buildList (x:xs) = (byteToBitVec x):(buildList xs) 
 
